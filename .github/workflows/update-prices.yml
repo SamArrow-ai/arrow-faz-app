@@ -1,0 +1,40 @@
+name: Mise à jour prix composants
+
+on:
+  schedule:
+    - cron: '0 5 * * *'   # Chaque nuit à 5h UTC (7h Paris)
+  workflow_dispatch:        # Déclenchement manuel depuis GitHub Actions
+
+permissions:
+  contents: write
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installer dépendances
+        run: pip install requests beautifulsoup4 lxml
+
+      - name: Scraper les prix LDLC
+        run: python scripts/scrape_prices.py
+
+      - name: Commit prix-live.json si modifié
+        run: |
+          git config user.name  "arrow-faz-bot"
+          git config user.email "bot@arrow-faz.fr"
+          if ! git diff --quiet prix-live.json; then
+            git add prix-live.json
+            git commit -m "MAJ prix $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "Aucun changement de prix"
+          fi
