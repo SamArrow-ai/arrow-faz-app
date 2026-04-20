@@ -16,7 +16,7 @@ Le code source de l'application n'est pas publié.
 
 ## Prix des composants
 
-Les prix sont mis à jour quotidiennement depuis LDLC.com par le workflow `.github/workflows/update-prices.yml`.
+Les prix sont mis à jour quotidiennement par un workflow `.github/workflows/update-prices.yml`.
 
 URL du fichier JSON : `https://raw.githubusercontent.com/SamArrow-ai/arrow-faz-app/main/prix-live.json`
 
