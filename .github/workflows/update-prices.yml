@@ -33,10 +33,11 @@ jobs:
         run: |
           git config user.name  "arrow-faz-bot"
           git config user.email "bot@arrow-faz.fr"
-          if ! git diff --quiet prix-live.json; then
+          git fetch origin main
+          git reset --soft origin/main
+          if ! git diff --cached --quiet prix-live.json; then
             git add prix-live.json
             git commit -m "MAJ prix $(date -u +%Y-%m-%d)"
-            git pull --rebase origin main
             git push
           else
             echo "Aucun changement de prix"
