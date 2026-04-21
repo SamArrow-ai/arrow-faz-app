@@ -149,36 +149,30 @@ def get_price(query: str, session: requests.Session) -> float | None:
             except (ValueError, TypeError):
                 pass
 
-        # 4. Sélecteurs CSS (du plus précis au plus large)
-        for selector in [
-            ".price-ht",
-            ".product-price",
-            "ul.listing-product .price .price",
-            "ul.listing-product .price",
-            ".listing-product .price",
-            ".price .price",
-            ".priceFinal",
-            ".price",
-            "[class*='price']",
+        # 4. Sélecteurs CSS — premier produit de la liste uniquement
+        for container_sel in [
+            "ul.listing-product li:first-child",
+            "ul.listing-product li",
+            ".listing-product li:first-child",
+            ".listing-product li",
         ]:
-            els = soup.select(selector)
-            for el in els:
+            container = soup.select_one(container_sel)
+            if not container:
+                continue
+            for price_sel in [".price .price", ".price", "[class*='price']"]:
+                el = container.select_one(price_sel)
+                if el:
+                    p = extract_price(el.get_text())
+                    if p and p > 10:
+                        return p
+
+        # 5. Fallback : tous les .price de la page (pas de regex brute)
+        for selector in [".price .price", ".price"]:
+            for el in soup.select(selector):
                 p = extract_price(el.get_text())
-                if p and p > 5:
+                if p and p > 10:
                     return p
 
-        # 5. Regex brute sur le texte visible (dernier recours)
-        visible = soup.get_text(" ", strip=True)
-        matches = re.findall(r"(\d{2,4}[,.]?\d{0,2})\s*€", visible)
-        for m in matches:
-            try:
-                val = float(m.replace(",", "."))
-                if 10 < val < 5000:
-                    return val
-            except ValueError:
-                pass
-
-        # Debug : montre un extrait HTML brut si rien trouvé
         print(f"\n  DEBUG HTML brut: {r.text[:500]}")
 
     except Exception as e:
