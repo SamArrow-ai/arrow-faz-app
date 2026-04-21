@@ -1,8 +1,10 @@
 """
 Scraper de prix composants PC — Arrow-Faz
-Source : LDLC.com (données publiques, délai de 2.5s entre requêtes)
+Source configurée via la variable d'environnement SCRAPER_BASE_URL
+(stockée en secret GitHub pour ne pas exposer le revendeur)
 """
 import json
+import os
 import re
 import sys
 import time
@@ -10,13 +12,20 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-LDLC_SEARCH = "https://www.ldlc.com/recherche/"
+BASE_URL = os.environ.get("SCRAPER_BASE_URL", "").rstrip("/")
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0",
-    "Accept-Language": "fr-FR,fr;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.5",
     "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Cache-Control": "max-age=0",
 }
 
 COMPONENTS = {
@@ -65,11 +74,11 @@ COMPONENTS = {
     "seasonic-focus-1000": "Seasonic Focus GX-1000",
     "beQuiet-pure11-600":  "be quiet Pure Power 11 FM 600W",
     # Stockage
-    "wd-sn770-1tb":       "WD Black SN770 1To NVMe",
-    "samsung-990pro-2tb": "Samsung 990 Pro 2To NVMe",
-    "crucial-p3-500gb":   "Crucial P3 Plus 500Go NVMe",
+    "wd-sn770-1tb":          "WD Black SN770 1To NVMe",
+    "samsung-990pro-2tb":    "Samsung 990 Pro 2To NVMe",
+    "crucial-p3-500gb":      "Crucial P3 Plus 500Go NVMe",
     "seagate-barracuda-2tb": "Seagate BarraCuda 2To",
-    "samsung-870evo-1tb": "Samsung 870 EVO 1To SSD",
+    "samsung-870evo-1tb":    "Samsung 870 EVO 1To SSD",
     # Boîtiers
     "nzxt-h5-flow":    "NZXT H5 Flow",
     "lianli-o11-mini": "Lian Li O11 Dynamic Mini",
@@ -79,9 +88,8 @@ COMPONENTS = {
 
 
 def extract_price(text: str) -> float | None:
-    text = text.replace("\xa0", " ").replace("\u202f", " ").strip()
-    # Formats: "299,99" / "1 299,99" / "1299.99"
-    m = re.search(r"(\d{1,4}(?:\s\d{3})?)[,.](\d{2})", text)
+    text = text.replace("\xa0", " ").replace(" ", " ").strip()
+    m = re.search(r"(\d{1,4}(?:[\s]\d{3})?)[,.](\d{2})", text)
     if m:
         try:
             return float(m.group(0).replace(",", ".").replace(" ", ""))
@@ -91,32 +99,66 @@ def extract_price(text: str) -> float | None:
 
 
 def get_price(query: str, session: requests.Session) -> float | None:
+    if not BASE_URL:
+        return None
     try:
-        url = LDLC_SEARCH + requests.utils.quote(query) + "/"
-        r = session.get(url, headers=HEADERS, timeout=15)
+        url = BASE_URL + "/" + requests.utils.quote(query) + "/"
+        r = session.get(url, headers=HEADERS, timeout=20)
+        print(f"  [{r.status_code}]", end=" ", flush=True, file=sys.stderr)
         if r.status_code != 200:
-            print(f"  HTTP {r.status_code}", file=sys.stderr)
             return None
+
         soup = BeautifulSoup(r.text, "lxml")
 
-        # Essai 1 : microdata itemprop="price"
+        # 1. JSON-LD schema.org (le plus fiable)
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.string or "")
+                if not isinstance(data, dict):
+                    continue
+                offers = data.get("offers", {})
+                if isinstance(offers, dict):
+                    p = offers.get("price") or offers.get("lowPrice")
+                    if p:
+                        return float(str(p).replace(",", "."))
+                elif isinstance(offers, list) and offers:
+                    p = offers[0].get("price")
+                    if p:
+                        return float(str(p).replace(",", "."))
+            except Exception:
+                pass
+
+        # 2. itemprop="price" (microdata)
         el = soup.find(attrs={"itemprop": "price"})
         if el:
             content = el.get("content") or el.get_text()
             try:
-                return float(content)
+                return float(str(content).replace(",", "."))
             except ValueError:
-                p = extract_price(content)
+                p = extract_price(str(content))
                 if p:
                     return p
 
-        # Essai 2 : sélecteurs CSS connus de LDLC
+        # 3. data-price attribute
+        for el in soup.find_all(attrs={"data-price": True}):
+            try:
+                val = float(str(el["data-price"]).replace(",", "."))
+                if val > 5:
+                    return val
+            except (ValueError, TypeError):
+                pass
+
+        # 4. Sélecteurs CSS (du plus précis au plus large)
         for selector in [
+            ".price-ht",
+            ".product-price",
             "ul.listing-product .price .price",
             "ul.listing-product .price",
             ".listing-product .price",
             ".price .price",
+            ".priceFinal",
             ".price",
+            "[class*='price']",
         ]:
             els = soup.select(selector)
             for el in els:
@@ -124,18 +166,44 @@ def get_price(query: str, session: requests.Session) -> float | None:
                 if p and p > 5:
                     return p
 
+        # 5. Regex brute sur le texte visible (dernier recours)
+        visible = soup.get_text(" ", strip=True)
+        matches = re.findall(r"(\d{2,4}[,.]?\d{0,2})\s*€", visible)
+        for m in matches:
+            try:
+                val = float(m.replace(",", "."))
+                if 10 < val < 5000:
+                    return val
+            except ValueError:
+                pass
+
+        # Debug : montre un extrait si rien trouvé
+        print(f"\n  DEBUG snippet: {visible[:200]}", file=sys.stderr)
+
     except Exception as e:
         print(f"  Exception: {e}", file=sys.stderr)
     return None
 
 
 def main():
+    if not BASE_URL:
+        print("✗ SCRAPER_BASE_URL non défini, abandon", file=sys.stderr)
+        sys.exit(1)
+
     prices_file = Path(__file__).parent.parent / "prix-live.json"
 
     with open(prices_file, "r", encoding="utf-8") as f:
         prices = json.load(f)
 
     session = requests.Session()
+    # Chargement de la page d'accueil pour initialiser les cookies
+    try:
+        home = BASE_URL.split("/recherche")[0]
+        session.get(home, headers=HEADERS, timeout=10)
+        time.sleep(2)
+    except Exception:
+        pass
+
     updated, failed = 0, []
 
     for comp_id, query in COMPONENTS.items():
@@ -149,7 +217,7 @@ def main():
         else:
             print(f"✗ garde {prices.get(comp_id, '?')}€")
             failed.append(comp_id)
-        time.sleep(2.5)
+        time.sleep(3)
 
     with open(prices_file, "w", encoding="utf-8") as f:
         json.dump(prices, f, indent=2, ensure_ascii=False)
