@@ -26,7 +26,7 @@
   "rtx4070ti": 1089.99,
   "rtx4080": 1139,
   "rtx4090": 1799,
-  "rtx5060ti": 489,95,
+  "rtx5060ti": 489.95,
   "rtx5070": 699.95,
   "rtx5080": 1299,
   "rx7600": 269,
@@ -35,7 +35,7 @@
   "corsair-rm550x": 54.90,
   "corsair-rm650x": 83.90,
   "corsair-rm750x": 109.90,
-  "corsair-rm850x": 119,90,
+  "corsair-rm850x": 119.90,
   "seasonic-focus-1000": 224.95,
   "beQuiet-pure11-600": 84.95,
   "wd-sn770-1tb": 279.99,
@@ -44,7 +44,7 @@
   "seagate-barracuda-2tb": 99.26,
   "samsung-870evo-1tb": 319.95,
   "nzxt-h5-flow": 94.95,
-  "lianli-o11-mini": 119,95,
-  "beQuiet-pure500": 109,95,
-  "fractal-north": 154,95
+  "lianli-o11-mini": 119.95,
+  "beQuiet-pure500": 109.95,
+  "fractal-north": 154.95
 }
