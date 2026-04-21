@@ -24,7 +24,9 @@ jobs:
       - name: Installer dépendances
         run: pip install requests beautifulsoup4 lxml
 
-      - name: Scraper les prix LDLC
+      - name: Scraper les prix
+        env:
+          SCRAPER_BASE_URL: ${{ secrets.SCRAPER_BASE_URL }}
         run: python scripts/scrape_prices.py
 
       - name: Commit prix-live.json si modifié
@@ -34,6 +36,7 @@ jobs:
           if ! git diff --quiet prix-live.json; then
             git add prix-live.json
             git commit -m "MAJ prix $(date -u +%Y-%m-%d)"
+            git pull --rebase origin main
             git push
           else
             echo "Aucun changement de prix"

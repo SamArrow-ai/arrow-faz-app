@@ -104,8 +104,9 @@ def get_price(query: str, session: requests.Session) -> float | None:
     try:
         url = BASE_URL + "/" + requests.utils.quote(query) + "/"
         r = session.get(url, headers=HEADERS, timeout=20)
-        print(f"  [{r.status_code}]", end=" ", flush=True, file=sys.stderr)
+        print(f"  [HTTP {r.status_code}]", end=" ", flush=True)
         if r.status_code != 200:
+            print(f"  erreur HTTP {r.status_code}")
             return None
 
         soup = BeautifulSoup(r.text, "lxml")
@@ -177,17 +178,17 @@ def get_price(query: str, session: requests.Session) -> float | None:
             except ValueError:
                 pass
 
-        # Debug : montre un extrait si rien trouvé
-        print(f"\n  DEBUG snippet: {visible[:200]}", file=sys.stderr)
+        # Debug : montre un extrait HTML brut si rien trouvé
+        print(f"\n  DEBUG HTML brut: {r.text[:500]}")
 
     except Exception as e:
-        print(f"  Exception: {e}", file=sys.stderr)
+        print(f"  Exception: {e}")
     return None
 
 
 def main():
     if not BASE_URL:
-        print("✗ SCRAPER_BASE_URL non défini, abandon", file=sys.stderr)
+        print("✗ SCRAPER_BASE_URL non défini, abandon")
         sys.exit(1)
 
     prices_file = Path(__file__).parent.parent / "prix-live.json"
