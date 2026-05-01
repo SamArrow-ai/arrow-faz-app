@@ -24,3 +24,9 @@ URL du fichier JSON : `https://raw.githubusercontent.com/SamArrow-ai/arrow-faz-a
 
 - Site : [arrow-faz.fr](https://arrow-faz.fr)
 - Email : contact@arrow-faz.fr
+
+## 💛 Soutenir le projet
+
+Ce projet est gratuit et open source. Si il vous a été utile, vous pouvez me soutenir avec un petit don :
+
+[![Faire un don](https://img.shields.io/badge/Faire%20un%20don-💛-yellow)](https://pay.sumup.com/b2c/QVO0XB98)
