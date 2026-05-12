@@ -24,14 +24,36 @@ jobs:
       - name: Installer dépendances
         run: pip install requests beautifulsoup4 lxml
 
-      - name: Scraper les prix LDLC
+      - name: Test connexion LDLC
+        env:
+          SCRAPER_BASE_URL: ${{ secrets.SCRAPER_BASE_URL }}
+        run: |
+          python3 -c "
+          import requests, os
+          base = os.environ.get('SCRAPER_BASE_URL', '')
+          url = base + '/AMD%20Ryzen%205%205600/'
+          print('URL testee:', url)
+          headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0', 'Accept-Language': 'fr-FR,fr;q=0.9'}
+          r = requests.get(url, headers=headers, timeout=20)
+          print('Status HTTP:', r.status_code)
+          print('Taille reponse:', len(r.text), 'bytes')
+          print('--- Debut HTML ---')
+          print(r.text[:800])
+          print('--- Fin ---')
+          "
+
+      - name: Scraper les prix
+        env:
+          SCRAPER_BASE_URL: ${{ secrets.SCRAPER_BASE_URL }}
         run: python scripts/scrape_prices.py
 
       - name: Commit prix-live.json si modifié
         run: |
           git config user.name  "arrow-faz-bot"
           git config user.email "bot@arrow-faz.fr"
-          if ! git diff --quiet prix-live.json; then
+          git fetch origin main
+          git reset --soft origin/main
+          if ! git diff --cached --quiet prix-live.json; then
             git add prix-live.json
             git commit -m "MAJ prix $(date -u +%Y-%m-%d)"
             git push
